@@ -137,7 +137,15 @@ function getPosition(element: HTMLDivElement) {
   return { r: parseInt(r, 10), c: parseInt(c, 10) }
 }
 
-function down(e: Event) {
+function down(e: MouseEvent) {
+  if (e.button === 0) {
+    if (selection.value) return downSelectionMove(e)
+    return downLine(e)
+  }
+  if (e.button === 2) return downSelect(e)
+}
+
+function downLine(e: MouseEvent) {
   e.preventDefault()
 
   if (!e.target) return
@@ -150,7 +158,43 @@ function down(e: Event) {
   startTarget = target
 }
 
+let startSelectTarget: HTMLDivElement | null = null
+let endSelectTarget: HTMLDivElement | null = null
+
+function downSelect(e: MouseEvent) {
+  e.preventDefault()
+
+  if (!e.target) return
+  startSelectTarget = e.target as HTMLDivElement
+}
+
+let selectionMoveTarget: HTMLDivElement | null
+function downSelectionMove(e: MouseEvent) {
+  e.preventDefault()
+
+  if (!e.target) return
+  const target = e.target as HTMLDivElement
+  const position = getPosition(target)
+
+  if (!position || !selectionStart || !selectionEnd) return
+  if (position.r >= selectionStart.r && position.r <= selectionEnd.r &&
+    position.c >= selectionStart.c && position.c <= selectionEnd.c) {
+    selectionMoveTarget = target
+  } else {
+    selectionStart = null
+    selectionEnd = null
+    if (selectionDiv) document.body.removeChild(selectionDiv)
+    selectionDiv = null
+  }
+}
+
 function up(e: MouseEvent) {
+  if (startTarget) return upLine(e)
+  if (startSelectTarget) return upSelect(e)
+  if (selectionMoveTarget) return upSelectionMove(e)
+}
+
+function upLine(e: MouseEvent) {
   if (!e.target) return
   if (!startTarget) return
 
@@ -171,9 +215,108 @@ function up(e: MouseEvent) {
   tempLine.value = []
 }
 
+let originalSelection: string[][] | null
+const selection = ref<string[][] | null>(null)
+let selectionStart: { r: number, c: number } | null
+let selectionEnd: { r: number, c: number } | null
+function upSelect(e: MouseEvent) {
+  if (!csvResult.value?.data) return
+  if (startSelectTarget) selectionStart = getPosition(startSelectTarget)
+  if (endSelectTarget) selectionEnd = getPosition(endSelectTarget)
+
+  if (!selectionStart || !selectionEnd) return
+  if (!selection.value) selection.value = []
+
+  originalSelection = []
+  for (let r = selectionStart.r; r <= selectionEnd.r; r++) {
+    if (!selection.value[r]) selection.value[r] = []
+    if (!originalSelection[r]) originalSelection[r] = []
+    for (let c = selectionStart.c; c <= selectionEnd.c; c++) {
+      selection.value[r][c] = csvResult.value.data[r][c]
+      originalSelection[r][c] = selection.value[r][c]
+    }
+  }
+  startSelectTarget = null
+  endSelectTarget = null
+}
+
+function upSelectionMove(e: MouseEvent) {
+  if (!selection.value) return
+
+  if (!originalSelection) return
+  const doOriginalSelection: string[][] = []
+  originalSelection.forEach((row, r) => {
+    doOriginalSelection[r] = []
+    row.forEach((col, c) => {
+      if (!csvResult.value || !originalSelection) return
+      doOriginalSelection[r][c] = csvResult.value.data[r][c]
+    })
+  })
+
+  const doSelection: string[][] = []
+  const doOriginalDestinationSelection: string[][] = []
+  selection.value.forEach((row, r) => {
+    doSelection[r] = []
+    doOriginalDestinationSelection[r] = []
+    row.forEach((col, c) => {
+      if (!csvResult.value || !selection.value) return
+      doSelection[r][c] = selection.value[r][c]
+      doOriginalDestinationSelection[r][c] = csvResult.value.data[r][c]
+    })
+  })
+
+
+  if (!csvResult.value) return
+  csvResult.value.data = csvResult.value.data.slice()
+  selection.value = null
+  originalSelection = null
+  selectionMoveTarget = null
+  if (selectionDiv) document.body.removeChild(selectionDiv)
+  selectionDiv = null
+
+  commander.do({
+    do() {
+      doOriginalSelection.forEach((row, r) => {
+        row.forEach((col, c) => {
+          if (!csvResult.value || !doOriginalSelection) return
+          csvResult.value.data[r][c] = '0'
+        })
+      })
+
+      doSelection.forEach((row, r) => {
+        row.forEach((col, c) => {
+          if (!csvResult.value || !doSelection) return
+          csvResult.value.data[r][c] = doSelection[r][c]
+        })
+      })
+    },
+    undo() {
+      doOriginalSelection.forEach((row, r) => {
+        row.forEach((col, c) => {
+          if (!csvResult.value) return
+          csvResult.value.data[r][c] = doOriginalSelection[r][c]
+        })
+      })
+
+      doOriginalDestinationSelection.forEach((row, r) => {
+        row.forEach((col, c) => {
+          if (!csvResult.value) return
+          csvResult.value.data[r][c] = doOriginalDestinationSelection[r][c]
+        })
+      })
+    },
+  })
+}
+
 const tempLine = ref<string[][]>([])
 
 function over(e: MouseEvent) {
+  if (startTarget) return lineOver(e)
+  if (startSelectTarget) return selectOver(e)
+  if (selectionMoveTarget) return selectionOver(e)
+}
+
+function lineOver(e: MouseEvent) {
   if (!startTarget) return
   if (!e.target) return
 
@@ -198,6 +341,63 @@ function over(e: MouseEvent) {
   }
 }
 
+let selectionDiv: HTMLDivElement | null
+
+function selectOver(e: MouseEvent) {
+  if (!startSelectTarget) return
+  if (!e.target) return
+
+  const target = e.target as HTMLDivElement
+  const { r, c } = target.dataset
+
+  if (!r || !c) return
+
+  endSelectTarget = target
+
+  const { x: startX, y: startY } = startSelectTarget.getBoundingClientRect()
+  const { x: endX, y: endY, width: endWidth, height: endHeight } = endSelectTarget.getBoundingClientRect()
+
+  if (selectionDiv) document.body.removeChild(selectionDiv)
+  const scrollContainer = target.closest('.overflow-auto')
+  let top = startY
+  top += window.scrollY
+  let left = startX
+  selectionDiv = document.createElement('div')
+  selectionDiv.style.position = 'absolute'
+  selectionDiv.style.top = `${top}px`
+  selectionDiv.style.left = `${left}px`
+  selectionDiv.style.width = `${endX - startX + endWidth}px`
+  selectionDiv.style.height = `${endY - startY + endHeight}px`
+  selectionDiv.classList.add('border-2', 'border-yellow-400')
+  selectionDiv.style.pointerEvents = 'none'
+  document.body.appendChild(selectionDiv)
+}
+
+function selectionOver(e: MouseEvent) {
+  if (!e.target) return
+  if (!selectionMoveTarget) return
+  if (!selection.value) return
+
+  const target = e.target as HTMLDivElement
+  const end = getPosition(target)
+  const start = getPosition(selectionMoveTarget)
+  if (!start || !end) return
+  const dr = end.r - start.r
+  const dc = end.c - start.c
+  const newSelection: string[][] = []
+  selection.value.forEach((row, r) => {
+    const newR = r + dr
+    if (!newSelection[newR]) newSelection[newR] = []
+    row.forEach((col, c) => {
+      const newC = c + dc
+      if (!selection.value) return
+      newSelection[newR][newC] = selection.value[r][c]
+    })
+  })
+  selection.value = newSelection
+  selectionMoveTarget = target
+}
+
 function line(x0: number, y0: number, x1: number, y1: number, callback: (x: number, y: number) => void) {
   var dx = Math.abs(x1 - x0)
   var dy = Math.abs(y1 - y0)
@@ -213,6 +413,10 @@ function line(x0: number, y0: number, x1: number, y1: number, callback: (x: numb
     if (e2 > -dy) { err -= dy; x0 += sx }
     if (e2 < dx) { err += dx; y0 += sy }
   }
+}
+
+function colorValue(r: number, c: number, value: string): string {
+  return tempLine.value?.[r]?.[c] || (selection.value?.[r]?.[c] !== undefined ? (selection.value?.[r]?.[c] === '' ? '0' : selection.value?.[r]?.[c]) : value)
 }
 
 </script>
@@ -246,7 +450,7 @@ function line(x0: number, y0: number, x1: number, y1: number, callback: (x: numb
       <div class="w-full my-4">
         <div v-if="csvResult" class="flex flex-col overflow-auto">
           <div v-for="row, r in csvResult.data" class="flex">
-            <div @click="setValue(r, c)" @mousedown="down" @mouseover="over" @mouseup="up" :key="`${r}-${c}-${value}`" v-for="value, c in row" :data-r="r" :data-c="c" class="flex flex-nowrap shrink-0 w-5 h-5 border-solid border border-gray-800 justify-center items-center" :style="`background-color: ${colorMap[tempLine?.[r]?.[c] || value]};`"></div>
+            <div @click="setValue(r, c)" @mousedown="down" @mouseover="over" @mouseup="up" :key="`${r}-${c}-${value}`" v-for="value, c in row" :data-r="r" :data-c="c" class="flex flex-nowrap shrink-0 w-5 h-5 border-solid border border-gray-800 justify-center items-center" :style="`background-color: ${colorMap[colorValue(r, c, value)]};`"></div>
           </div>
         </div>
       </div>
