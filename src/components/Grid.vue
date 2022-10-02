@@ -126,6 +126,95 @@ onBeforeUnmount(() => {
   document.body.removeEventListener('keydown', handleKeydown)
 })
 
+let startTarget: HTMLDivElement | null
+let endTarget: HTMLDivElement | null
+
+function getPosition(element: HTMLDivElement) {
+  const { r, c } = element.dataset
+
+  if (!r || !c) return null
+
+  return { r: parseInt(r, 10), c: parseInt(c, 10) }
+}
+
+function down(e: Event) {
+  e.preventDefault()
+
+  if (!e.target) return
+
+  const target = e.target as HTMLDivElement
+  const { r, c } = target.dataset
+
+  if (!r || !c) return
+
+  startTarget = target
+}
+
+function up(e: MouseEvent) {
+  if (!e.target) return
+  if (!startTarget) return
+
+  const target = e.target as HTMLDivElement
+  const { r, c } = target.dataset
+
+  if (!r || !c) return
+
+  endTarget = target
+
+  const start = getPosition(startTarget)
+  const end = getPosition(endTarget)
+
+  if (start && end) line(start.r, start.c, end.r, end.c, setValue)
+
+  startTarget = null
+  endTarget = null
+  tempLine.value = []
+}
+
+const tempLine = ref<string[][]>([])
+
+function over(e: MouseEvent) {
+  if (!startTarget) return
+  if (!e.target) return
+
+  const target = e.target as HTMLDivElement
+  const { r, c } = target.dataset
+
+  if (!r || !c) return
+
+  endTarget = target
+
+  const start = getPosition(startTarget)
+  const end = getPosition(endTarget)
+
+  if (start && end) {
+    tempLine.value = []
+    line(start.r, start.c, end.r, end.c, (r, c) => {
+      if (!currentValue.value) return
+      if (!tempLine.value[r]) tempLine.value[r] = []
+
+      tempLine.value[r][c] = currentValue.value
+    })
+  }
+}
+
+function line(x0: number, y0: number, x1: number, y1: number, callback: (x: number, y: number) => void) {
+  var dx = Math.abs(x1 - x0)
+  var dy = Math.abs(y1 - y0)
+  var sx = (x0 < x1) ? 1 : -1
+  var sy = (y0 < y1) ? 1 : -1
+  var err = dx - dy
+
+  while (true) {
+    callback(x0, y0)
+
+    if ((x0 === x1) && (y0 === y1)) break
+    var e2 = 2 * err
+    if (e2 > -dy) { err -= dy; x0 += sx }
+    if (e2 < dx) { err += dx; y0 += sy }
+  }
+}
+
 </script>
 
 <template>
@@ -157,7 +246,7 @@ onBeforeUnmount(() => {
       <div class="w-full my-4">
         <div v-if="csvResult" class="flex flex-col overflow-auto">
           <div v-for="row, r in csvResult.data" class="flex">
-            <div @mousedown="setValue(r, c)" v-for="value, c in row" class="flex flex-nowrap shrink-0 w-5 h-5 border-solid border border-gray-800 justify-center items-center" :style="`background-color: ${colorMap[value]};`"></div>
+            <div @click="setValue(r, c)" @mousedown="down" @mouseover="over" @mouseup="up" :key="`${r}-${c}-${value}`" v-for="value, c in row" :data-r="r" :data-c="c" class="flex flex-nowrap shrink-0 w-5 h-5 border-solid border border-gray-800 justify-center items-center" :style="`background-color: ${colorMap[tempLine?.[r]?.[c] || value]};`"></div>
           </div>
         </div>
       </div>
