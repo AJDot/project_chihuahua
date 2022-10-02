@@ -1,16 +1,23 @@
-# Vue 3 + TypeScript + Vite
+# Grid Art
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+Create pixel art thorugh an uploaded csv file.
 
-## Recommended IDE Setup
+## Run
 
-- [VS Code](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar)
+For windows: Start the app by downloading the release zip file for windows. Find and open the make > squirrel.windows > x64 > project_chihuahua setup executable
 
-## Type Support For `.vue` Imports in TS
+For mac: Clone this project, run `npm install`, then `npm run make`. Find the application and open it.
 
-Since TypeScript cannot handle type information for `.vue` imports, they are shimmed to be a generic Vue component type by default. In most cases this is fine if you don't really care about component prop types outside of templates. However, if you wish to get actual prop types in `.vue` imports (for example to get props validation when using manual `h(...)` calls), you can enable Volar's Take Over mode by following these steps:
+For developers: Clone this project, run `npm install`, then `npm run dev` to start electron and the vite dev server.
 
-1. Run `Extensions: Show Built-in Extensions` from VS Code's command palette, look for `TypeScript and JavaScript Language Features`, then right click and select `Disable (Workspace)`. By default, Take Over mode will enable itself if the default TypeScript extension is disabled.
-2. Reload the VS Code window by running `Developer: Reload Window` from the command palette.
+## Operations
 
-You can learn more about Take Over mode [here](https://github.com/johnsoncodehk/volar/discussions/471).
+The csv file should contain the strings "0" through "10", representing 11 colors.
+
+Edit the grid by selecting a color in the settings menu and clicking a grid square.
+
+Create lines by clicking and dragging from one square to another
+
+Move a section by right clicking and dragging to make the selection, then left clicking and dragging to move it. The moved area is replaced with the "0" value color.
+
+Undo/redo these operations with `ctrl+z`/`ctrl+shift+z`.
