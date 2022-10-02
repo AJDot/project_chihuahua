@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import DropZone from './DropZone.vue'
-import FileStore from '../compositions/fileStore'
+import Commander from '@src/utils/commander'
 import CSVParser from '@src/utils/csvParser'
-import { nextTick, ref } from 'vue'
-import { ParseResult } from 'papaparse'
 import { getFileList } from '@src/utils/fileUtils'
+import { ParseResult } from 'papaparse'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import FileStore from '../compositions/fileStore'
+import DropZone from './DropZone.vue'
 import PrimaryButton from './PrimaryButton.vue'
 import SidePanel from './SidePanel.vue'
 
@@ -13,6 +14,7 @@ const { files, addFiles, removeAllFiles } = FileStore()
 const csvResult = ref<ParseResult<string[]>>()
 const currentValue = ref<string>()
 const sidePanelOpen = ref<boolean>(false)
+const commander = new Commander()
 
 type ColorValue = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10'
 const colorMap: Record<string, string> = {
@@ -65,12 +67,24 @@ async function importSheet(fileList: FileList) {
 }
 
 function setValue(r: number, c: number) {
-  console.log(typeof r, typeof c)
-  console.log(r, c)
   if (!csvResult.value?.data?.[r]) return
   if (!currentValue.value) return
 
-  csvResult.value.data[r][c] = currentValue.value
+  const oldValue = csvResult.value.data[r][c]
+  const newValue = currentValue.value
+
+  if (newValue === oldValue) return
+
+  commander.do({
+    do() {
+      if (!csvResult.value?.data?.[r]) return
+      csvResult.value.data[r][c] = newValue
+    },
+    undo() {
+      if (!csvResult.value?.data?.[r]) return
+      csvResult.value.data[r][c] = oldValue
+    },
+  })
 }
 
 function toggleSlideover() {
@@ -91,6 +105,27 @@ function download() {
   link.click() // This will download the data file named "my_data.csv".
 
 }
+
+function handleKeydown(e: KeyboardEvent) {
+  switch (e.key.toUpperCase()) {
+    case 'Z':
+      if (e.ctrlKey && e.shiftKey) {
+        commander.redo()
+      } else if (e.ctrlKey) {
+        commander.undo()
+      }
+      break
+  }
+}
+
+onMounted(() => {
+  document.body.addEventListener('keydown', handleKeydown)
+})
+
+onBeforeUnmount(() => {
+  document.body.removeEventListener('keydown', handleKeydown)
+})
+
 </script>
 
 <template>
