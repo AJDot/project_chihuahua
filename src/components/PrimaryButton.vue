@@ -5,7 +5,7 @@
     bg-yellow-600 text-base font-medium text-white 
     hover:bg-yellow-700 hover:cursor-pointer
     focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 
-    sm:w-auto sm:text-sm 
+    sm:text-sm 
     disabled:opacity-50 disabled:cursor-not-allowed">
     <slot />
   </button>

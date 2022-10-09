@@ -11,12 +11,13 @@ import SidePanel from './SidePanel.vue'
 
 const { files, addFiles, removeAllFiles } = FileStore()
 
-const csvResult = ref<ParseResult<string[]>>()
-const currentValue = ref<string>()
+const csvResult = ref<ParseResult<ColorMapValue[]>>()
+const currentValue = ref<ColorValue>()
 const sidePanelOpen = ref<boolean>(false)
 const commander = new Commander()
 
 type ColorValue = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10'
+type ColorMapValue = '' | ColorValue
 const colorMap: Record<string, string> = {
   "": '#000000',
   0: '#000000',
@@ -32,19 +33,19 @@ const colorMap: Record<string, string> = {
   10: '#FE5F6B',
 }
 
-const colorButtonMap: Record<ColorValue, { bg: string, text: string, class: string }> = {
-  "0": { bg: colorMap[0], text: '#FFFFFF', class: 'col-span-5' },
-  "1": { bg: colorMap[1], text: '#000000', class: 'col-span-1' },
-  "2": { bg: colorMap[2], text: '#FFFFFF', class: 'col-span-1' },
-  "3": { bg: colorMap[3], text: '#000000', class: 'col-span-1' },
-  "4": { bg: colorMap[4], text: '#000000', class: 'col-span-1' },
-  "5": { bg: colorMap[5], text: '#FFFFFF', class: 'col-span-1' },
-  "6": { bg: colorMap[6], text: '#000000', class: 'col-span-1' },
-  "7": { bg: colorMap[7], text: '#000000', class: 'col-span-1' },
-  "8": { bg: colorMap[8], text: '#000000', class: 'col-span-1' },
-  "9": { bg: colorMap[9], text: '#000000', class: 'col-span-1' },
-  "10": { bg: colorMap[10], text: '#000000', class: 'col-span-1' },
-}
+const colorButtonMap = ref<Record<ColorValue, { bg: string, text: string, class: string, total: number, used: number }>>({
+  "0": { bg: colorMap[0], text: '#FFFFFF', class: 'col-span-5', total: 10_240, used: 0 },
+  "1": { bg: colorMap[1], text: '#000000', class: 'col-span-1', total: 3_063, used: 0 },
+  "2": { bg: colorMap[2], text: '#FFFFFF', class: 'col-span-1', total: 391, used: 0 },
+  "3": { bg: colorMap[3], text: '#000000', class: 'col-span-1', total: 1_602, used: 0 },
+  "4": { bg: colorMap[4], text: '#000000', class: 'col-span-1', total: 1_881, used: 0 },
+  "5": { bg: colorMap[5], text: '#FFFFFF', class: 'col-span-1', total: 534, used: 0 },
+  "6": { bg: colorMap[6], text: '#000000', class: 'col-span-1', total: 1_018, used: 0 },
+  "7": { bg: colorMap[7], text: '#000000', class: 'col-span-1', total: 721, used: 0 },
+  "8": { bg: colorMap[8], text: '#000000', class: 'col-span-1', total: 598, used: 0 },
+  "9": { bg: colorMap[9], text: '#000000', class: 'col-span-1', total: 229, used: 0 },
+  "10": { bg: colorMap[10], text: '#000000', class: 'col-span-1', total: 203, used: 0 },
+})
 
 function onInputChange(e: Event) {
   if (!e.target) return
@@ -62,15 +63,31 @@ async function importSheet(fileList: FileList) {
   addFiles([fileList[0]])
   const results = await new CSVParser().parse(files.value[0].file)
   csvResult.value = results
+  for (const map of Object.values(colorButtonMap.value)) {
+    map.used = 0
+  }
+
+  for (const row of csvResult.value.data) {
+    for (let v of row) {
+      if (v === '1') {
+        console.log(colorButtonMap.value[v].used)
+      }
+      updateCount(normalizeValue(v), 1)
+    }
+  }
 
   removeAllFiles()
+}
+
+function updateCount(value: ColorValue, change: number) {
+  colorButtonMap.value[value].used += change
 }
 
 function setValue(r: number, c: number) {
   if (!csvResult.value?.data?.[r]) return
   if (!currentValue.value) return
 
-  const oldValue = csvResult.value.data[r][c]
+  const oldValue = normalizeValue(csvResult.value.data[r][c])
   const newValue = currentValue.value
 
   if (newValue === oldValue) return
@@ -79,10 +96,14 @@ function setValue(r: number, c: number) {
     do() {
       if (!csvResult.value?.data?.[r]) return
       csvResult.value.data[r][c] = newValue
+      updateCount(oldValue, -1)
+      updateCount(newValue, 1)
     },
     undo() {
       if (!csvResult.value?.data?.[r]) return
       csvResult.value.data[r][c] = oldValue
+      updateCount(oldValue, 1)
+      updateCount(newValue, -1)
     },
   })
 }
@@ -216,7 +237,7 @@ function upLine(e: MouseEvent) {
 }
 
 let originalSelection: string[][] | null
-const selection = ref<string[][] | null>(null)
+const selection = ref<ColorMapValue[][] | null>(null)
 let selectionStart: { r: number, c: number } | null
 let selectionEnd: { r: number, c: number } | null
 function upSelect(e: MouseEvent) {
@@ -240,28 +261,32 @@ function upSelect(e: MouseEvent) {
   endSelectTarget = null
 }
 
+function normalizeValue(v: ColorMapValue): ColorValue {
+  return v === '' ? '0' : v
+}
+
 function upSelectionMove(e: MouseEvent) {
   if (!selection.value) return
 
   if (!originalSelection) return
-  const doOriginalSelection: string[][] = []
+  const doOriginalSelection: ColorValue[][] = []
   originalSelection.forEach((row, r) => {
     doOriginalSelection[r] = []
     row.forEach((col, c) => {
       if (!csvResult.value || !originalSelection) return
-      doOriginalSelection[r][c] = csvResult.value.data[r][c]
+      doOriginalSelection[r][c] = normalizeValue(csvResult.value.data[r][c])
     })
   })
 
-  const doSelection: string[][] = []
-  const doOriginalDestinationSelection: string[][] = []
+  const doSelection: ColorValue[][] = []
+  const doOriginalDestinationSelection: ColorValue[][] = []
   selection.value.forEach((row, r) => {
     doSelection[r] = []
     doOriginalDestinationSelection[r] = []
     row.forEach((col, c) => {
       if (!csvResult.value || !selection.value) return
-      doSelection[r][c] = selection.value[r][c]
-      doOriginalDestinationSelection[r][c] = csvResult.value.data[r][c]
+      doSelection[r][c] = normalizeValue(selection.value[r][c])
+      doOriginalDestinationSelection[r][c] = normalizeValue(csvResult.value.data[r][c])
     })
   })
 
@@ -384,14 +409,14 @@ function selectionOver(e: MouseEvent) {
   if (!start || !end) return
   const dr = end.r - start.r
   const dc = end.c - start.c
-  const newSelection: string[][] = []
+  const newSelection: ColorValue[][] = []
   selection.value.forEach((row, r) => {
     const newR = r + dr
     if (!newSelection[newR]) newSelection[newR] = []
     row.forEach((col, c) => {
       const newC = c + dc
       if (!selection.value) return
-      newSelection[newR][newC] = selection.value[r][c]
+      newSelection[newR][newC] = normalizeValue(selection.value[r][c])
     })
   })
   selection.value = newSelection
@@ -438,7 +463,17 @@ function colorValue(r: number, c: number, value: string): string {
           </label>
         </div>
         <div class="grid grid-cols-5 gap-4 my-4">
-          <PrimaryButton @click="currentValue = k" v-for="v, k in colorButtonMap" :style="`background-color: ${v.bg}; color: ${v.text}`" :class="`p-2 ${v.class} text-center ${k === currentValue ? 'ring-2 ring-yellow-500 ring-offset-2' : ''} cursor-pointer`">{{k}}</PrimaryButton>
+          <div v-for="v, k in colorButtonMap" :class="v.class">
+            <PrimaryButton class="w-full sm:w-full border" @click="currentValue = k" :style="`background-color: ${v.bg}; color: ${v.text}`" :class="`p-2 text-center ${k === currentValue ? 'ring-2 ring-yellow-500 ring-offset-2' : ''} cursor-pointer`">{{k}}</PrimaryButton>
+            <div class="bg-gray-200 rounded w-full sm:w-full text-center">
+              <template v-if="k == '0'">
+                Unset: {{v.used}}
+              </template>
+              <template v-else>
+                {{v.total ? v.total - v.used : null}}
+              </template>
+            </div>
+          </div>
         </div>
         <PrimaryButton @click="download" class="">Download</PrimaryButton>
       </div>
