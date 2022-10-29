@@ -62,21 +62,21 @@ async function importSheet(fileList: FileList) {
 
   addFiles([fileList[0]])
   const results = await new CSVParser().parse(files.value[0].file)
-  csvResult.value = results
+  loadData(results)
+  removeAllFiles()
+}
+
+function loadData(data: ParseResult<ColorMapValue[]>) {
+  csvResult.value = data
   for (const map of Object.values(colorButtonMap.value)) {
     map.used = 0
   }
 
   for (const row of csvResult.value.data) {
     for (let v of row) {
-      if (v === '1') {
-        console.log(colorButtonMap.value[v].used)
-      }
       updateCount(normalizeValue(v), 1)
     }
   }
-
-  removeAllFiles()
 }
 
 function updateCount(value: ColorValue, change: number) {
@@ -139,7 +139,10 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  const file = await fetch("templates/Lego World Map Template.csv")
+  const data = await file.text()
+  loadData(await new CSVParser().parse(data))
   document.body.addEventListener('keydown', handleKeydown)
 })
 
@@ -464,13 +467,13 @@ function colorValue(r: number, c: number, value: string): string {
         </div>
         <div class="grid grid-cols-5 gap-4 my-4">
           <div v-for="v, k in colorButtonMap" :class="v.class">
-            <PrimaryButton class="w-full sm:w-full border" @click="currentValue = k" :style="`background-color: ${v.bg}; color: ${v.text}`" :class="`p-2 text-center ${k === currentValue ? 'ring-2 ring-yellow-500 ring-offset-2' : ''} cursor-pointer`">{{k}}</PrimaryButton>
+            <PrimaryButton class="w-full sm:w-full border" @click="currentValue = k" :style="`background-color: ${v.bg}; color: ${v.text}`" :class="`p-2 text-center ${k === currentValue ? 'ring-2 ring-yellow-500 ring-offset-2' : ''} cursor-pointer`">{{ k }}</PrimaryButton>
             <div class="bg-gray-200 rounded w-full sm:w-full text-center">
               <template v-if="k == '0'">
-                Unset: {{v.used}}
+                Unset: {{ v.used }}
               </template>
               <template v-else>
-                {{v.total ? v.total - v.used : null}}
+                {{ v.total ? v.total - v.used : null }}
               </template>
             </div>
           </div>
