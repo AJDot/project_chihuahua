@@ -48,8 +48,8 @@ const colorButtonMap = ref<Record<ColorValue, { bg: string, text: string, class:
 })
 
 function onInputChange(e: Event) {
-  if (!e.target) return
-  const target = e.target as HTMLInputElement
+  if (!e.currentTarget) return
+  const target = e.currentTarget as HTMLInputElement
 
   const fileList = getFileList(e)
 
@@ -172,9 +172,9 @@ function down(e: MouseEvent) {
 function downLine(e: MouseEvent) {
   e.preventDefault()
 
-  if (!e.target) return
+  if (!e.currentTarget) return
 
-  const target = e.target as HTMLDivElement
+  const target = e.currentTarget as HTMLDivElement
   const { r, c } = target.dataset
 
   if (!r || !c) return
@@ -188,16 +188,16 @@ let endSelectTarget: HTMLDivElement | null = null
 function downSelect(e: MouseEvent) {
   e.preventDefault()
 
-  if (!e.target) return
-  startSelectTarget = e.target as HTMLDivElement
+  if (!e.currentTarget) return
+  startSelectTarget = e.currentTarget as HTMLDivElement
 }
 
 let selectionMoveTarget: HTMLDivElement | null
 function downSelectionMove(e: MouseEvent) {
   e.preventDefault()
 
-  if (!e.target) return
-  const target = e.target as HTMLDivElement
+  if (!e.currentTarget) return
+  const target = e.currentTarget as HTMLDivElement
   const position = getPosition(target)
 
   if (!position || !selectionStart || !selectionEnd) return
@@ -219,10 +219,10 @@ function up(e: MouseEvent) {
 }
 
 function upLine(e: MouseEvent) {
-  if (!e.target) return
+  if (!e.currentTarget) return
   if (!startTarget) return
 
-  const target = e.target as HTMLDivElement
+  const target = e.currentTarget as HTMLDivElement
   const { r, c } = target.dataset
 
   if (!r || !c) return
@@ -346,9 +346,9 @@ function over(e: MouseEvent) {
 
 function lineOver(e: MouseEvent) {
   if (!startTarget) return
-  if (!e.target) return
+  if (!e.currentTarget) return
 
-  const target = e.target as HTMLDivElement
+  const target = e.currentTarget as HTMLDivElement
   const { r, c } = target.dataset
 
   if (!r || !c) return
@@ -373,9 +373,9 @@ let selectionDiv: HTMLDivElement | null
 
 function selectOver(e: MouseEvent) {
   if (!startSelectTarget) return
-  if (!e.target) return
+  if (!e.currentTarget) return
 
-  const target = e.target as HTMLDivElement
+  const target = e.currentTarget as HTMLDivElement
   const { r, c } = target.dataset
 
   if (!r || !c) return
@@ -402,11 +402,11 @@ function selectOver(e: MouseEvent) {
 }
 
 function selectionOver(e: MouseEvent) {
-  if (!e.target) return
+  if (!e.currentTarget) return
   if (!selectionMoveTarget) return
   if (!selection.value) return
 
-  const target = e.target as HTMLDivElement
+  const target = e.currentTarget as HTMLDivElement
   const end = getPosition(target)
   const start = getPosition(selectionMoveTarget)
   if (!start || !end) return
@@ -485,10 +485,12 @@ function colorValue(r: number, c: number, value: string): string {
       <div class="grid w-96 gap-4 my-4">
         <PrimaryButton @click="toggleSlideover" class="">Settings</PrimaryButton>
       </div>
-      <div class="w-full my-4">
+      <div class="w-full my-4 bg-black">
         <div v-if="csvResult" class="flex flex-col overflow-auto">
           <div v-for="row, r in csvResult.data" class="flex">
-            <div @click="setValue(r, c)" @mousedown="down" @mouseover="over" @mouseup="up" :key="`${r}-${c}-${value}`" v-for="value, c in row" :data-r="r" :data-c="c" class="flex flex-nowrap shrink-0 w-5 h-5 border-solid border border-gray-800 justify-center items-center" :style="`background-color: ${colorMap[colorValue(r, c, value)]};`"></div>
+            <div v-for="value, c in row" @mousedown="down" @mouseover="over" @mouseup="up" :data-r="r" :data-c="c" class="border border-gray-900" :class="{ 'border-r-gray-400': !((c + 1) % 16), 'border-b-gray-400': !((r + 1) % 16) }">
+              <div @click="setValue(r, c)" :key="`${r}-${c}-${value}`" class="flex flex-nowrap shrink-0 w-5 h-5 border-solid justify-center items-center rounded-full" :style="`background-color: ${colorMap[colorValue(r, c, value)]};`"></div>
+            </div>
           </div>
         </div>
       </div>
