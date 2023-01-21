@@ -452,11 +452,12 @@ function colorValue(r: number, c: number, value: string): string {
 <template>
   <div class="flex ">
     <SidePanel class="sticky shrink-0 top-0 left-0" v-if="sidePanelOpen" @close="toggleSlideover">
-      <div class="grid grid-cols-1 p-4">
-        <div class="flex ml-20 m-4">
-          <label for="file-input" class="cursor-pointer">
+      <div class="grid grid-cols-1 px-4 pb-4">
+        <div class="flex">
+          <label for="file-input" class="cursor-pointer grow text-center">
+            <div class="text-left text-lg font-bold">Upload CSV:</div>
             <DropZone @files-dropped="importSheet" class="" #default="{ active }">
-              <div class="w-fit h-fit p-2 bg-yellow-200 border-yellow-400 border-2 hover:bg-yellow-100 hover:border-yellow-200" :class="active ? 'bg-yellow-100 border-yellow-200' : ''">
+              <div class="w-full h-fit px-4 py-2 rounded shadow-sm bg-yellow-200 border-yellow-400 border-2 hover:bg-yellow-100 hover:border-yellow-200" :class="active ? 'bg-yellow-100 border-yellow-200' : ''">
                 <div>Drag and drop CSV here</div>
                 <span class="text-sm">or <strong><em>click here</em> to select</strong></span>
 
@@ -465,7 +466,8 @@ function colorValue(r: number, c: number, value: string): string {
             </DropZone>
           </label>
         </div>
-        <div class="grid grid-cols-5 gap-4 my-4">
+        <div class="text-left text-lg font-bold mt-4">Colors:</div>
+        <div class="grid grid-cols-5 gap-4">
           <div v-for="v, k in colorButtonMap" :class="v.class">
             <PrimaryButton class="w-full sm:w-full border" @click="currentValue = k" :style="`background-color: ${v.bg}; color: ${v.text}`" :class="`p-2 text-center ${k === currentValue ? 'ring-2 ring-yellow-500 ring-offset-2' : ''} cursor-pointer`">{{ k }}</PrimaryButton>
             <div class="bg-gray-200 rounded w-full sm:w-full text-center">
@@ -478,7 +480,17 @@ function colorValue(r: number, c: number, value: string): string {
             </div>
           </div>
         </div>
-        <PrimaryButton @click="download" class="">Download</PrimaryButton>
+        <PrimaryButton @click="download" class="mt-4">Save</PrimaryButton>
+        <ul class="mt-4">
+          <span class="text-left text-lg font-bold mt-4">Instructions:</span>
+          <li class="px-2 py-1">Upload a CSV or use the template loaded automatically.</li>
+          <li class="px-2 py-1">The CSV should contain the strings "0" through "10", representing 11 colors.</li>
+          <li class="px-2 py-1">Edit the grid by selecting a color in the settings menu and clicking a grid square.</li>
+          <li class="px-2 py-1">Create lines by clicking and dragging from one square to another.</li>
+          <li class="px-2 py-1">Move a section by right-clicking and dragging down-right to make the selection, then left-clicking and dragging to move it. The moved area is replaced with the "0" value color.</li>
+          <li class="px-2 py-1">Undo/redo these operations with <code>ctrl+z</code>/<code>ctrl+shift+z</code>.</li>
+          <li class="px-2 py-1">Download/export your file with the <kbd>Save</kbd> button.</li>
+        </ul>
       </div>
     </SidePanel>
     <div class="p-6 overflow-auto">
